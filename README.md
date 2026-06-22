@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Side Quest System of Life
 
 > 将人生技能学习游戏化 —— 多 Agent 驱动的学习路径生成 + 即时反馈追踪系统
@@ -113,3 +114,7 @@ docker compose up -d
 ## License
 
 MIT
+=======
+# side-quest-system
+This is a self-learning system based on agent skills where allows learner to customize their leaning pattern through chatting with agents, and a tree-shape learning curve/game-like-mission would be generated
+>>>>>>> 4a35632efee56a1c010145a1e2d014cd792e005d
