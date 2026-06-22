@@ -1,120 +1,121 @@
-<<<<<<< HEAD
-# Side Quest System of Life
+ï»¿# Side Quest System of Life
 
-> ½«ÈËÉú¼¼ÄÜÑ§Ï°ÓÎÏ·»¯ ¡ª¡ª ¶à Agent Çý¶¯µÄÑ§Ï°Â·¾¶Éú³É + ¼´Ê±·´À¡×·×ÙÏµÍ³
+> Gamify your learning journey â€” turn any goal into a tree-shaped quest line with the help of AI agents.
 
-## Concept
+A multi-agent learning pathway generator and progress tracker. Tell the system what you want to learn, and three specialized AI agents collaborate to break it down into a structured, game-like quest tree with streak tracking.
 
-ÈËÉú¾ÍÏñÒ»³¡¿ª·ÅÊÀ½ç RPG ¡ª¡ª µ«È±ÉÙ quest log¡£Õâ¸öÏîÄ¿Í¨¹ý **3 ¸ö AI Agent** ½«Ä£ºýµÄÑ§Ï°Ä¿±ê×ª»¯Îª¿ÉÁ¿»¯µÄÈÎÎñÇåµ¥£¬²¢ÒÔÓÎÏ·»¯µÄ streak ºÍÒÇ±íÅÌÈÃÓÃ»§±£³Ö¶¯Á¦¡£
-
-```
-ÓÃ»§£º"ÎÒÏëÑ§ C++"
-  ¡ú Goal Clarifier: Ñ¯ÎÊ¼¶±ð¡¢Ê±¼ä¡¢·ç¸ñ
-  ¡ú Pathway Planner: Éú³ÉÄ£¿é»¯Ñ§Ï°Â·Ïß
-  ¡ú Task Quantifier: ²ð·ÖÎª micro-tasks
-  ¡ú Êä³ö¿É×·×ÙµÄ Quest ÁÐ±í
-```
+`
+User: "I want to learn C++"
+  â†’ Goal Clarifier: asks about timeline, level, and learning style
+  â†’ Pathway Planner: builds a 5â€“10 module JSON pathway
+  â†’ Task Quantifier: splits each module into 3â€“8 micro-tasks
+  â†’ Rendered as an interactive quest list with check-off tracking
+`
 
 ## Tech Stack
 
-| ²ã | ¼¼Êõ |
+| Layer | Technology |
 |---|---|
-| Agent ºËÐÄ | Python 3.12 + OpenAI SDK (¶à Agent ±àÅÅ) |
+| Agent Engine | Python 3.12 + OpenAI SDK (Agent-as-Tool pattern) |
 | Backend API | FastAPI |
 | Database | Supabase (PostgreSQL) |
 | Frontend | Next.js 16 + React 19 + TypeScript + Tailwind CSS v4 |
-| ²¿Êð | Docker Compose |
+| Deployment | Docker Compose |
 
 ## Project Structure
 
-```
+`
 side-quest-system-of-life/
-©À©¤©¤ backend/app/
-©¦   ©À©¤©¤ agents/              ¡û 3 Agent + Orchestrator
-©¦   ©À©¤©¤ routes/               ¡û FastAPI (chat / pathway / progress / user)
-©¦   ©À©¤©¤ schemas/              ¡û Pydantic models
-©¦   ©À©¤©¤ db/                   ¡û Supabase client + schema.sql
-©¦   ©À©¤©¤ main.py               ¡û FastAPI entry
-©¦   ©¸©¤©¤ config.py             ¡û Env config
-©À©¤©¤ frontend/src/
-©¦   ©À©¤©¤ app/layout.tsx        ¡û Root layout
-©¦   ©À©¤©¤ app/page.tsx          ¡û Tabbed UI (Quest / Pathway / Progress)
-©¦   ©À©¤©¤ components/
-©¦   ©¦   ©À©¤©¤ AgentChat.tsx     ¡û ¶Ô»°½çÃæ + 3 ½×¶Î Agent Á÷³Ì
-©¦   ©¦   ©À©¤©¤ PathwayView.tsx   ¡û Quest ÈÎÎñÁÐ±í + Õ¹¿ª/¹´Ñ¡
-©¦   ©¦   ©¸©¤©¤ Dashboard.tsx     ¡û Í³¼ÆÃæ°å + Streak
-©¦   ©À©¤©¤ lib/api.ts            ¡û API client
-©¦   ©¸©¤©¤ types/index.ts        ¡û TypeScript types
-©À©¤©¤ docker-compose.yml
-©¸©¤©¤ README.md
-```
+â”œâ”€â”€ backend/app/
+â”‚   â”œâ”€â”€ agents/               # 3 Agents + Orchestrator + GoalTreeGenerator
+â”‚   â”œâ”€â”€ routes/               # FastAPI routers (agent, pathway, progress, user)
+â”‚   â”œâ”€â”€ schemas/              # Pydantic models
+â”‚   â”œâ”€â”€ db/                   # Supabase client, SQL schema, DB models
+â”‚   â”œâ”€â”€ main.py               # FastAPI entry point
+â”‚   â””â”€â”€ config.py             # Environment config
+â”œâ”€â”€ frontend/src/
+â”‚   â”œâ”€â”€ app/                  # Next.js App Router pages (layout, home, new, [name])
+â”‚   â”œâ”€â”€ components/           # AgentChat, Dashboard, PathwayView, ThemeToggle
+â”‚   â”œâ”€â”€ context/              # Theme context (dark/light mode)
+â”‚   â”œâ”€â”€ lib/                  # API client, env helpers
+â”‚   â””â”€â”€ types/                # TypeScript type definitions
+â”œâ”€â”€ docker-compose.yml
+â”œâ”€â”€ start.bat                 # One-click launcher (Windows)
+â””â”€â”€ README.md
+`
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.12+, Node.js 22+
-- Supabase project (free tier)
-- OpenAI API key
+- A Supabase project (free tier)
+- An OpenAI API key
 
 ### 1. Backend
 
-```bash
+`ash
 cd backend
 cp .env.example .env
-# ±à¼­ .env ¡ú OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
+# Edit .env with your OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 python -m venv .venv
+# Windows
 .venv\Scripts\activate
+# macOS / Linux
+# source .venv/bin/activate
+
 pip install -r requirements.txt
 
-# ÔÚ Supabase SQL Editor ÔËÐÐ db/schema.sql ½¨±í
+# Run the schema migration in your Supabase SQL editor (db/schema.sql)
 uvicorn app.main:app --reload
-```
+`
 
 ### 2. Frontend
 
-```bash
+`ash
 cd frontend
 npm install
-npm run dev        # ¡ú http://localhost:3000
-# API ÇëÇó×Ô¶¯ proxy µ½ backend (next.config.ts rewrites)
-```
+npm run dev        # â†’ http://localhost:3000
+# API requests are proxied to the backend via next.config.ts rewrites
+`
 
 ### 3. Docker
 
-```bash
+`ash
 docker compose up -d
-```
+`
+
+### 4. Windows Quick Start
+
+Double-click start.bat â€” it installs backend dependencies, starts uvicorn on port 8000, and launches the Next.js dev server on port 3000.
 
 ## API Endpoints
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/agent/chat` | Agent ¶Ô»° ¡ú ·µ»Ø»Ø¸´ + ¿ÉÄÜº¬ pathway |
-| `GET` | `/api/pathways/{id}` | ÍêÕû pathway tree (modules + tasks) |
-| `GET` | `/api/pathways/user/{id}` | ÓÃ»§µÄËùÓÐ pathway |
-| `PATCH` | `/api/pathways/tasks/{id}` | ÇÐ»» task Íê³É×´Ì¬ |
-| `GET` | `/api/progress/{user_id}` | Í³¼ÆÊý¾Ý: streak, %, ×î½üÈÕÖ¾ |
-| `POST` | `/api/users/` | ´´½¨/¸üÐÂÓÃ»§µµ°¸ |
-| `GET` | `/api/health` | ½¡¿µ¼ì²é |
+| POST | /api/agent/chat | Chat with the agent pipeline; returns reply + suggested pathway |
+| GET | /api/pathways/{id} | Retrieve a pathway tree (modules + tasks) |
+| GET | /api/pathways/user/{id} | Get all pathways for a user |
+| PATCH | /api/pathways/tasks/{id} | Toggle a task's completion status |
+| GET | /api/progress/{user_id} | Get stats: streak, completion %, learning log |
+| POST | /api/users/ | Create or look up a user profile |
+| GET | /api/health | Health check |
 
-## 3-Agent Pipeline
+## Agent Pipeline
 
-```
-[Goal Clarifier]  ¡û ÓÃ»§¶Ô»° (ÊÕ¼¯ subject/level/time/style)
-       ¡ý [PROFILE_COMPLETE]
-[Pathway Planner]  ¡û Éú³É 5-10 Ä£¿é JSON
-       ¡ý
-[Task Quantifier]  ¡û ÖðÄ£¿é²ð·ÖÎª 3-8 micro-tasks
-       ¡ý
-  ´æÈë Supabase ¡ú Ç°¶ËäÖÈ¾¿É¹´Ñ¡ÈÎÎñÁÐ±í
-```
+`
+[Goal Clarifier]   â€” chats with the user to collect subject, level, time, and style
+       â†“ [PROFILE_COMPLETE]
+[Pathway Planner]  â€” generates a 5â€“10 module JSON pathway
+       â†“
+[Task Quantifier]  â€” splits each module into 3â€“8 micro-tasks
+       â†“
+  Persisted to Supabase â†’ rendered as a check-off quest list in the frontend
+`
+
+The pipeline is orchestrated by Orchestrator and a GoalTreeGenerator for advanced branching.
 
 ## License
 
 MIT
-=======
-# side-quest-system
-This is a self-learning system based on agent skills where allows learner to customize their leaning pattern through chatting with agents, and a tree-shape learning curve/game-like-mission would be generated
->>>>>>> 4a35632efee56a1c010145a1e2d014cd792e005d
