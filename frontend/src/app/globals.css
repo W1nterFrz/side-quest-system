@@ -1,0 +1,68 @@
+﻿@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-accent: #4a94f8;
+  --color-accent-dim: #3a7bd5;
+  --color-accent-bg: rgba(74, 148, 248, 0.10);
+}
+
+:root, .light {
+  --bg-page: #ffffff;
+  --bg-card: #f8f9fa;
+  --bg-card-hover: #f0f1f3;
+  --bg-surface: #ffffff;
+  --bg-input: #f1f3f5;
+  --bg-progress: #e9ecef;
+  --border-subtle: #e9ecef;
+  --border-card: #e9ecef;
+  --text-primary: #111111;
+  --text-secondary: #6c757d;
+  --text-tertiary: #adb5bd;
+  --text-inverse: #ffffff;
+  --icon-muted: #adb5bd;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.dark {
+  --bg-page: #0f0f0f;
+  --bg-card: #1a1a1a;
+  --bg-card-hover: #222222;
+  --bg-surface: #1a1a1a;
+  --bg-input: #222222;
+  --bg-progress: #2a2a2a;
+  --border-subtle: #222222;
+  --border-card: #2a2a2a;
+  --text-primary: #e5e5e5;
+  --text-secondary: #888888;
+  --text-tertiary: #555555;
+  --text-inverse: #000000;
+  --icon-muted: #444444;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+body {
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--text-tertiary); border-radius: 3px; }
+
+.card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 1.25rem; transition: background 0.15s ease, box-shadow 0.15s ease; }
+.card-hover:hover { background: var(--bg-card-hover); box-shadow: var(--shadow-md); }
+.card-glass { background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: 16px; box-shadow: var(--shadow-sm); }
+.input-field { background: var(--bg-input); border: 1px solid transparent; border-radius: 12px; padding: 0.625rem 1rem; font-size: 0.875rem; outline: none; transition: border-color 0.15s; color: var(--text-primary); }
+.input-field:focus { border-color: var(--color-accent); }
+.btn-primary { background: var(--color-accent); color: white; border-radius: 12px; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; transition: opacity 0.15s; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.task-check { width: 1.25rem; height: 1.25rem; border-radius: 9999px; border: 2px solid var(--text-tertiary); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0; }
+.task-check.checked { border-color: var(--color-accent); background: var(--color-accent); }
+.task-check.checked svg { color: white; }
