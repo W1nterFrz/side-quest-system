@@ -1,7 +1,8 @@
-"""CRUD endpoints for pathways, modules, tasks."""
+﻿"""CRUD endpoints for pathways, modules, tasks."""
 
 import re
 from fastapi import APIRouter, HTTPException
+from postgrest.exceptions import APIError
 
 from ..db.supabase_client import get_supabase
 from ..schemas.pydantic_models import TaskUpdate, PathwayResponse
@@ -9,39 +10,46 @@ from ..schemas.pydantic_models import TaskUpdate, PathwayResponse
 router = APIRouter(prefix="/api/pathways", tags=["pathways"])
 
 
+def _single_or_none(query):
+    """Execute .single() and return data or None without raising on no-match."""
+    try:
+        result = query.execute()
+        return result.data
+    except APIError:
+        return None
+
+
 @router.get("/{pathway_id_or_slug}")
 async def get_pathway(pathway_id_or_slug: str):
     """Fetch a full pathway tree by id or slug."""
     supabase = get_supabase()
 
-    # Try by id first, then by slug
-    pathway = (
+    # Try by id first, then by slug.
+    data = _single_or_none(
         supabase.table("pathways")
         .select("*")
         .eq("id", pathway_id_or_slug)
         .single()
-        .execute()
     )
-    if not pathway.data:
-        pathway = (
+    if not data:
+        data = _single_or_none(
             supabase.table("pathways")
             .select("*")
             .eq("slug", pathway_id_or_slug)
             .single()
-            .execute()
         )
-    if not pathway.data:
+    if not data:
         raise HTTPException(status_code=404, detail="Pathway not found.")
 
     modules = (
         supabase.table("modules")
         .select("*")
-        .eq("pathway_id", pathway.data["id"])
+        .eq("pathway_id", data["id"])
         .order("sort_order")
         .execute()
     )
 
-    tree = dict(pathway.data)
+    tree = dict(data)
     tree["modules"] = []
     for mod in modules.data:
         tasks = (

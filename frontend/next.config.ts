@@ -1,4 +1,4 @@
-﻿import type { NextConfig } from "next";
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async rewrites() {
@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
         destination: "http://localhost:8000/api/:path*",
       },
     ];
+  },
+  httpAgentOptions: {
+    keepAlive: true,
+    timeout: 120_000, // 120s proxy timeout
   },
 };
 

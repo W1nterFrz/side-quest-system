@@ -1,15 +1,19 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect } from "react";
 import type { AgentPhase, ChatResponse, Pathway } from "@/types";
 import { api } from "@/lib/api";
-import { Send, Bot, Loader2 } from "lucide-react";
+import { Send, Bot, Loader2, Sparkles } from "lucide-react";
 
 interface Props { onPathwayReady: (pathway: Pathway, convId: string) => void; conversationId: string | null; }
 interface Message { role: "user" | "assistant" | "system"; content: string; agent?: string; }
 
 const PHASE_LABELS: Record<AgentPhase, string> = { goal_clarifier: "Goal Clarifier", pathway_planner: "Pathway Planner", task_quantifier: "Task Quantifier" };
-const PHASE_DESC: Record<AgentPhase, string> = { goal_clarifier: "Let me understand your learning goals.", pathway_planner: "Now I will build your personalized pathway.", task_quantifier: "Breaking each module into concrete steps..." };
+const PHASE_DESC: Record<AgentPhase, string> = {
+  goal_clarifier: "Let me understand your learning goals.",
+  pathway_planner: "Now I'm building your personalized learning pathway...",
+  task_quantifier: "Breaking each module into concrete steps..."
+};
 
 export default function AgentChat({ onPathwayReady, conversationId: initialConvId }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -17,9 +21,10 @@ export default function AgentChat({ onPathwayReady, conversationId: initialConvI
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<AgentPhase>("goal_clarifier");
   const [convId, setConvId] = useState<string | null>(initialConvId);
+  const [transitionMsg, setTransitionMsg] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, transitionMsg]);
 
   const send = async () => {
     if (!input.trim() || loading) return;
@@ -30,20 +35,44 @@ export default function AgentChat({ onPathwayReady, conversationId: initialConvI
       const res = await api.chat({ conversation_id: convId, agent: phase, message: userMsg });
       setConvId(res.conversation_id);
       setMessages((prev) => [...prev, { role: "assistant", content: res.reply, agent: res.agent }]);
-      if (res.pathway) { onPathwayReady(res.pathway, res.conversation_id); setPhase("task_quantifier"); }
+
+      if (res.pathway) {
+        onPathwayReady(res.pathway, res.conversation_id);
+        setPhase("task_quantifier");
+        setTransitionMsg(null);
+      }
+
       if (phase === "goal_clarifier" && res.reply.includes("[PROFILE_COMPLETE]")) {
         setPhase("pathway_planner");
-        setTimeout(async () => {
-          const f = await api.chat({ conversation_id: res.conversation_id, agent: "pathway_planner", message: "Please generate a learning pathway based on my goals." });
-          setMessages((prev) => [...prev, { role: "assistant", content: f.reply, agent: "pathway_planner" }]);
-          if (f.pathway) onPathwayReady(f.pathway, f.conversation_id);
-          setLoading(false);
-        }, 500);
+        setTransitionMsg("正在根据你的目标生成专属学习路径...");
+        triggerPathwayGeneration(res.conversation_id);
         return;
       }
+
+      setLoading(false);
     } catch (err) {
       setMessages((prev) => [...prev, { role: "system", content: String(err) }]);
-    } finally { if (phase !== "goal_clarifier") setLoading(false); }
+      setLoading(false);
+    }
+  };
+
+  const triggerPathwayGeneration = (cid: string) => {
+    setTimeout(async () => {
+      try {
+        setTransitionMsg("正在分析学习模块，拆解任务...");
+        const f = await api.chat({ conversation_id: cid, agent: "pathway_planner", message: "Please generate a learning pathway based on my goals." });
+        setMessages((prev) => [...prev, { role: "assistant", content: f.reply, agent: "pathway_planner" }]);
+        if (f.pathway) {
+          onPathwayReady(f.pathway, f.conversation_id);
+          setPhase("task_quantifier");
+        }
+        setTransitionMsg(null);
+      } catch (err) {
+        setTransitionMsg(null);
+        setMessages((prev) => [...prev, { role: "system", content: String(err) }]);
+      }
+      setLoading(false);
+    }, 600);
   };
 
   return (
@@ -65,7 +94,7 @@ export default function AgentChat({ onPathwayReady, conversationId: initialConvI
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-        {messages.length === 0 && (
+        {messages.length === 0 && !transitionMsg && (
           <div className="text-center py-20">
             <Bot className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--icon-muted)" }} />
             <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Hello! What would you like to learn?</p>
@@ -89,7 +118,14 @@ export default function AgentChat({ onPathwayReady, conversationId: initialConvI
             )}
           </div>
         ))}
-        {loading && (
+        {transitionMsg && (
+          <div className="flex gap-3 items-center p-3 rounded-xl" style={{ background: "var(--bg-card)", borderColor: "var(--border-card)", border: "1px solid var(--border-card)" }}>
+            <Sparkles className="w-4 h-4 animate-pulse shrink-0" style={{ color: "var(--color-accent)" }} />
+            <span className="text-sm" style={{ color: "var(--color-accent)" }}>{transitionMsg}</span>
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" style={{ color: "var(--color-accent)" }} />
+          </div>
+        )}
+        {loading && !transitionMsg && (
           <div className="flex gap-3">
             <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "var(--color-accent-bg)" }}>
               <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--color-accent)" }} />
@@ -105,8 +141,8 @@ export default function AgentChat({ onPathwayReady, conversationId: initialConvI
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2">
-        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={phase === "goal_clarifier" ? "Describe what you want to learn..." : 'Ask a question or type "continue"...'} className="input-field flex-1" disabled={loading} />
-        <button type="submit" disabled={loading || !input.trim()} className="btn-primary"><Send className="w-4 h-4" /></button>
+        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={phase === "goal_clarifier" ? "Describe what you want to learn..." : 'Ask a question or type "continue"...'} className="input-field flex-1" disabled={loading || !!transitionMsg} />
+        <button type="submit" disabled={loading || !input.trim() || !!transitionMsg} className="btn-primary"><Send className="w-4 h-4" /></button>
       </form>
     </div>
   );
