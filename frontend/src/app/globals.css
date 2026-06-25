@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
@@ -55,14 +55,82 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--text-tertiary); border-radius: 3px; }
 
-.card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 1.25rem; transition: background 0.15s ease, box-shadow 0.15s ease; }
-.card-hover:hover { background: var(--bg-card-hover); box-shadow: var(--shadow-md); }
-.card-glass { background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: 16px; box-shadow: var(--shadow-sm); }
-.input-field { background: var(--bg-input); border: 1px solid transparent; border-radius: 12px; padding: 0.625rem 1rem; font-size: 0.875rem; outline: none; transition: border-color 0.15s; color: var(--text-primary); }
+/* Cards & inputs */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  padding: 1.25rem;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.card-hover:hover {
+  background: var(--bg-card-hover);
+  box-shadow: var(--shadow-md);
+}
+.card-glass {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.input-field {
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s;
+  color: var(--text-primary);
+}
 .input-field:focus { border-color: var(--color-accent); }
-.btn-primary { background: var(--color-accent); color: white; border-radius: 12px; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 500; transition: opacity 0.15s; }
+.btn-primary {
+  background: var(--color-accent);
+  color: white;
+  border-radius: 12px;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
 .btn-primary:hover { opacity: 0.9; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-.task-check { width: 1.25rem; height: 1.25rem; border-radius: 9999px; border: 2px solid var(--text-tertiary); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0; }
-.task-check.checked { border-color: var(--color-accent); background: var(--color-accent); }
+
+/* Task checkbox */
+.task-check {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 2px solid var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.task-check.checked {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
 .task-check.checked svg { color: white; }
+
+/* Locked task checkbox */
+.task-check-locked {
+  cursor: not-allowed;
+  border-color: var(--text-tertiary);
+  opacity: 0.35;
+}
+
+/* Module fade-in when newly unlocked */
+@keyframes moduleFadeIn {
+  0% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.module-fade-in {
+  animation: moduleFadeIn 0.5s ease-out forwards;
+}

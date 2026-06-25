@@ -1,5 +1,5 @@
--- ============================================================
--- Side Quest System of Life ¨C Supabase Schema
+ï»¿-- ============================================================
+-- Side Quest System of Life â€“ Supabase Schema
 -- Run this in the Supabase SQL Editor to bootstrap tables.
 -- ============================================================
 
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     updated_at  TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Learning pathways (each quest)
+-- 2. Learning pathways
 CREATE TABLE IF NOT EXISTS pathways (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS modules (
     pathway_id  UUID REFERENCES pathways(id) ON DELETE CASCADE,
     title       TEXT NOT NULL,
     sort_order  INT DEFAULT 0,
+    is_core     BOOLEAN DEFAULT TRUE,
+    depends_on  UUID[] DEFAULT '{}',
     created_at  TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_modules_pathway ON modules(pathway_id);
@@ -81,9 +83,9 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
--- VIEW: quest_summary ¡ª used by the homepage gallery
--- ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+-- ============================================================
+-- VIEW: quest_summary â€” used by the homepage gallery
+-- ============================================================
 
 CREATE OR REPLACE VIEW quest_summary AS
 SELECT
@@ -110,9 +112,9 @@ LEFT JOIN LATERAL (
 ) t ON true
 ORDER BY p.created_at DESC;
 
--- ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+-- ============================================================
 -- RLS
--- ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+-- ============================================================
 
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pathways ENABLE ROW LEVEL SECURITY;

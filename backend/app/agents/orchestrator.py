@@ -1,3 +1,4 @@
+﻿
 import json
 import re
 import traceback
@@ -132,14 +133,10 @@ class AgentOrchestrator:
 
             tree_agent = GoalTreeGeneratorAgent()
             tree_prompt = json.dumps(profile_json, ensure_ascii=False)
-            _log(f"[GoalTreeGen] Starting ({len(tree_prompt)} chars prompt)")
+            _log(f"[GoalTreeGen] Starting ({len(tree_prompt)} chars)")
 
-            t0 = time.perf_counter()
-            tree_reply = await asyncio.wait_for(
-                tree_agent.chat(history, tree_prompt),
-                timeout=60.0,
-            )
-            _log(f"[GoalTreeGen] LLM: {time.perf_counter() - t0:.2f}s ({len(tree_reply)} chars)")
+            tree_reply = await tree_agent.chat(history, tree_prompt)
+            _log(f"[GoalTreeGen] Got {len(tree_reply)} chars")
 
             supabase = get_supabase()
             await asyncio.to_thread(
@@ -150,127 +147,96 @@ class AgentOrchestrator:
                     "agent_name": "goal_tree_generator",
                 }).execute()
             )
-            _log("[GoalTreeGen] Saved to DB")
+            _log("[GoalTreeGen] Done & saved")
+        except BaseException as e:
+            _log(f"[GoalTreeGen] FAILED: {e}")
+            traceback.print_exc()
 
-        except BaseException:
-            _log(f"[GoalTreeGen] Failed:\n{traceback.format_exc()}")
+    def _create_conversation(self, supabase, user_profile):
+        user_id = "00000000-0000-0000-0000-000000000001"
+        conv = supabase.table("conversations").insert({"user_id": user_id}).execute()
+        cid = conv.data[0]["id"]
+        if user_profile:
+            supabase.table("user_profiles").upsert({
+                "id": user_id,
+                "email": user_profile.email,
+                "level": user_profile.level,
+                "time_budget": user_profile.time_budget,
+                "style": user_profile.style,
+            }).execute()
+        return UUID(cid)
 
     async def _try_generate_pathway(self, supabase, conversation_id, reply):
-        try:
-            parsed = self._try_extract_json(reply)
-            if not parsed or "modules" not in parsed:
-                _log("[PathwayPlanner] No modules in JSON")
-                return None
-
-            _log(f"[DEBUG] calling _save_pathway with {len(parsed.get('modules',[]))} modules")
-            return await self._save_pathway(supabase, conversation_id, parsed)
-
-        except BaseException:
-            _log(f"[Pathway] Generation failed:\n{traceback.format_exc()}")
+        parsed = self._try_extract_json(reply)
+        if not parsed or "modules" not in parsed:
+            _log(f"[Pathway] No valid JSON with modules found")
             return None
 
-    def _ensure_user(self, supabase, profile) -> str:
-        if profile:
-            existing = supabase.table("user_profiles").select("id").eq("email", profile.email).execute()
-            if existing.data:
-                return existing.data[0]["id"]
-            new_user = supabase.table("user_profiles").insert(profile.model_dump()).execute()
-            if new_user.data:
-                return new_user.data[0]["id"]
+        modules_raw = parsed.get("modules", [])
+        if not modules_raw:
+            _log("[Pathway] Empty modules list")
+            return None
 
-        user_id = str(uuid4())
-        supabase.table("user_profiles").insert({
-            "id": user_id,
-            "email": f"anon_{uuid4().hex[:8]}@local.dev",
-            "level": "beginner",
-            "time_budget": "casual",
-            "style": "structured",
-        }).execute()
-        return user_id
-
-    def _create_conversation(self, supabase, profile) -> str:
-        user_id = self._ensure_user(supabase, profile)
-        conv = supabase.table("conversations").insert({"user_id": user_id}).execute()
-        return conv.data[0]["id"]
-
-    def _generate_slug(self, title: str) -> str:
-        slug = title.lower()
-        slug = re.sub(r"[^\w\s-]", "", slug)
-        slug = re.sub(r"[\s_]+", "-", slug)
-        slug = re.sub(r"-+", "-", slug).strip("-")
-        import uuid
-        suffix = uuid.uuid4().hex[:6]
-        return f"{slug}-{suffix}" if slug else suffix
-
-    def _try_extract_json(self, text: str) -> dict | None:
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-        match = re.search(r"\{[\s\S]*\}", text)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                pass
-        return None
-
-    async def _save_pathway(self, supabase, conversation_id: str, parsed: dict) -> PathwayTree:
         t0 = time.perf_counter()
-        _log("[DEBUG] _save_pathway ENTER")
-        from ..db.supabase_client import get_supabase
-        supabase_local = get_supabase()
-        _log("[DEBUG] supabase_local ready")
-
-        conv = supabase_local.table("conversations").select("user_id").eq("id", conversation_id).single().execute()
-        user_id = conv.data["user_id"] if conv.data else None
-        _log(f"[DEBUG] user_id resolved")
+        supabase_local = supabase
 
         title = parsed.get("title", "Untitled Pathway")
-        slug = self._generate_slug(title)
+        _log(f"[DEBUG] _save_pathway START for '{title}' with {len(modules_raw)} modules")
 
-        pw = supabase_local.table("pathways").insert({
-            "user_id": user_id,
-            "slug": slug,
-            "title": title,
-            "subject": parsed.get("subject", ""),
-            "goal_level": parsed.get("goal_level", ""),
-            "duration": parsed.get("duration", ""),
-            "summary": parsed.get("summary", ""),
-        }).execute()
+        # Step 1: Insert pathway
+        pw = await asyncio.to_thread(
+            lambda: supabase_local.table("pathways").insert({
+                "user_id": "00000000-0000-0000-0000-000000000001",
+                "title": title,
+                "subject": parsed.get("subject", ""),
+                "goal_level": parsed.get("goal_level", ""),
+                "duration": parsed.get("duration", ""),
+                "summary": parsed.get("summary", ""),
+            }).execute()
+        )
         pw_data = pw.data[0]
         pathway_id = pw_data["id"]
         _log(f"[DEBUG] pathway created: {pathway_id}")
 
-        modules_raw = parsed.get("modules", [])
-        n_mods = len(modules_raw)
-        _log(f"[DEBUG] processing {n_mods} modules (semaphore=3)")
+        # Step 2: Insert all modules sequentially to resolve depends_on indices
+        index_to_uuid: dict[int, str] = {}
+        for i, mod in enumerate(modules_raw):
+            is_core = mod.get("is_core", True)
+            deps_indices = mod.get("depends_on", [])
+            # Resolve index-based depends_on to actual UUIDs (only previous modules available)
+            resolved_deps = [
+                index_to_uuid[idx] for idx in deps_indices
+                if isinstance(idx, int) and idx in index_to_uuid
+            ]
 
+            mod_result = await asyncio.to_thread(
+                lambda i=i, mod=mod, deps=resolved_deps, core=is_core:
+                    supabase_local.table("modules").insert({
+                        "pathway_id": pathway_id,
+                        "title": mod["title"],
+                        "sort_order": i,
+                        "is_core": core,
+                        "depends_on": deps,
+                    }).execute()
+            )
+            mod_data = mod_result.data[0]
+            index_to_uuid[i] = mod_data["id"]
+            _log(f"[DEBUG] module {i} inserted: {mod_data['id']} (is_core={is_core}, deps={deps})")
+
+        # Step 3: Run LLM task quantification in parallel (semaphore=3)
         quantifier = TaskQuantifierAgent()
         llm_sem = asyncio.Semaphore(3)
-        _log("[DEBUG] quantifier + semaphore ready")
 
-        async def process_single_module(i: int, mod: dict):
+        async def process_module_tasks(i: int, mod: dict):
             try:
-                _log(f"[DEBUG] mod {i} START")
-                t_mod = time.perf_counter()
-
-                mod_result = await asyncio.to_thread(
-                    lambda: supabase_local.table("modules")
-                    .insert({"pathway_id": pathway_id, "title": mod["title"], "sort_order": i})
-                    .execute()
-                )
-                mod_data = mod_result.data[0]
-                module_id = mod_data["id"]
-                _log(f"[DEBUG] mod {i} DB insert done")
+                module_id = index_to_uuid[i]
+                _log(f"[DEBUG] mod {i} LLM call START")
+                t_llm = time.perf_counter()
 
                 quant_prompt = f"模块标题：{mod['title']}\n模块描述：{mod.get('description', '')}"
                 quant_history = [{"role": "user", "content": "请为以上学习模块生成微观任务列表。"}]
 
-                _log(f"[DEBUG] mod {i} waiting for semaphore...")
                 async with llm_sem:
-                    _log(f"[DEBUG] mod {i} LLM call START")
-                    t_llm = time.perf_counter()
                     try:
                         tasks_json = await asyncio.wait_for(
                             quantifier.chat(quant_history, quant_prompt),
@@ -282,15 +248,20 @@ class AgentOrchestrator:
                     except BaseException as e:
                         _log(f"[Pathway] mod {i} LLM FAILED: {e}")
                         tasks_json = "[]"
+
                 _log(f"[DEBUG] mod {i} LLM done: {time.perf_counter() - t_llm:.2f}s")
 
                 tasks_list = self._try_extract_json_array(tasks_json) or []
 
                 if tasks_list:
                     tasks_to_insert = [
-                        {"module_id": module_id, "title": t["title"],
-                         "description": t.get("description", ""),
-                         "sort_order": j, "completed": False}
+                        {
+                            "module_id": module_id,
+                            "title": t["title"],
+                            "description": t.get("description", ""),
+                            "sort_order": j,
+                            "completed": False,
+                        }
                         for j, t in enumerate(tasks_list)
                     ]
                     t_result = await asyncio.to_thread(
@@ -300,20 +271,33 @@ class AgentOrchestrator:
                 else:
                     task_objects = []
 
-                mod_with_tasks = dict(mod_data)
-                mod_with_tasks["tasks"] = task_objects
-                _log(f"[DEBUG] mod {i} DONE: {time.perf_counter() - t_mod:.2f}s ({len(task_objects)} tasks)")
-                return mod_with_tasks
+                _log(f"[DEBUG] mod {i} DONE: {len(task_objects)} tasks")
+                return {
+                    "id": module_id,
+                    "pathway_id": pathway_id,
+                    "title": mod["title"],
+                    "sort_order": i,
+                    "is_core": mod.get("is_core", True),
+                    "depends_on": [index_to_uuid[idx] for idx in mod.get("depends_on", []) if isinstance(idx, int) and idx in index_to_uuid],
+                    "tasks": task_objects,
+                }
             except BaseException as e:
                 _log(f"[Pathway] mod {i} FATAL: {e}")
                 traceback.print_exc()
-                # Return a minimal valid entry so gather doesn't fail
-                return {"id": None, "title": mod.get("title", "?"), "sort_order": i, "tasks": []}
+                return {
+                    "id": index_to_uuid.get(i),
+                    "pathway_id": pathway_id,
+                    "title": mod.get("title", "?"),
+                    "sort_order": i,
+                    "is_core": True,
+                    "depends_on": [],
+                    "tasks": [],
+                }
 
-        _log(f"[DEBUG] launching asyncio.gather for {n_mods} modules")
+        _log(f"[DEBUG] launching asyncio.gather for {len(modules_raw)} modules (task generation)")
         t_gather = time.perf_counter()
         results = await asyncio.gather(
-            *(process_single_module(i, mod) for i, mod in enumerate(modules_raw)),
+            *(process_module_tasks(i, mod) for i, mod in enumerate(modules_raw)),
         )
         _log(f"[DEBUG] asyncio.gather returned: {time.perf_counter() - t_gather:.2f}s")
 
@@ -336,6 +320,19 @@ class AgentOrchestrator:
             except (json.JSONDecodeError, TypeError):
                 pass
         match = re.search(r"\[[\s\S]*\]", text)
+        if match:
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                pass
+        return None
+
+    def _try_extract_json(self, text: str) -> dict | None:
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        match = re.search(r"\{[\s\S]*\}", text)
         if match:
             try:
                 return json.loads(match.group())

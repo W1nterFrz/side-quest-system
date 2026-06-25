@@ -1,6 +1,6 @@
 ﻿"""Typed dict / dataclass helpers for database rows."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 
 
@@ -30,6 +30,8 @@ class Module:
     pathway_id: str
     title: str
     sort_order: int = 0
+    is_core: bool = True
+    depends_on: list[str] = field(default_factory=list)
 
 
 @dataclass

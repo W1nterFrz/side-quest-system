@@ -33,6 +33,8 @@ export interface Module {
   pathway_id: string;
   title: string;
   sort_order: number;
+  is_core: boolean;
+  depends_on: string[];
   tasks: Task[];
 }
 

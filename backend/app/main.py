@@ -6,9 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routes import agent, pathway, progress, user
 
 app = FastAPI(
-    title="Side Quest System of Life",
+    title="Learning Path – System of Life",
     description="Multi-agent learning pathway generator & progress tracker",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -27,4 +27,4 @@ app.include_router(user.router)
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "service": "side-quest-system-of-life"}
+    return {"status": "ok", "service": "learning-path-system"}

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,7 +7,7 @@ import type { Pathway } from "@/types";
 import AgentChat from "@/components/AgentChat";
 import { ArrowLeft } from "lucide-react";
 
-export default function NewQuestPage() {
+export default function NewPathwayPage() {
   const router = useRouter();
   const [conversationId, setConversationId] = useState<string | null>(null);
 

@@ -1,4 +1,4 @@
-"""Pydantic models for request / response validation."""
+﻿"""Pydantic models for request / response validation."""
 
 from datetime import date, datetime
 from typing import Any
@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
-# ── User ──────────────────────────────────────────────
+# ── User ────────────────────────────────────────────────
 class UserProfileCreate(BaseModel):
     email: str
     level: str = "beginner"
@@ -23,7 +23,7 @@ class UserProfileResponse(BaseModel):
     style: str
 
 
-# ── Pathway ───────────────────────────────────────────
+# ── Pathway ─────────────────────────────────────────────
 class PathwayResponse(BaseModel):
     id: UUID
     user_id: UUID
@@ -40,6 +40,8 @@ class ModuleResponse(BaseModel):
     pathway_id: UUID
     title: str
     sort_order: int
+    is_core: bool = True
+    depends_on: list[UUID] = []
 
 
 class TaskResponse(BaseModel):
@@ -56,7 +58,7 @@ class TaskUpdate(BaseModel):
     completed: bool
 
 
-# ── Pathway tree (modules → tasks) ────────────────────
+# ── Pathway tree (modules → tasks) ─────────────────────
 class ModuleWithTasks(ModuleResponse):
     tasks: list[TaskResponse] = []
 
@@ -65,7 +67,7 @@ class PathwayTree(PathwayResponse):
     modules: list[ModuleWithTasks] = []
 
 
-# ── Chat ──────────────────────────────────────────────
+# ── Chat ────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     conversation_id: UUID | None = None
     agent: str = "goal_clarifier"
@@ -81,7 +83,7 @@ class ChatResponse(BaseModel):
     goal_tree: dict[str, Any] | None = None
 
 
-# ── Progress ──────────────────────────────────────────
+# ── Progress ────────────────────────────────────────────
 class ProgressLogResponse(BaseModel):
     id: UUID
     user_id: UUID
