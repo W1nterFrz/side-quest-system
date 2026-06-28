@@ -3,20 +3,17 @@
 import { useState, useCallback } from "react";
 import type { Pathway, Module as ModuleType, Task } from "@/types";
 import { api } from "@/lib/api";
-import { CheckCircle2, ChevronDown, ChevronRight, Target, Lock } from "lucide-react";
+import { ChevronDown, ChevronRight, Target, Lock } from "lucide-react";
 
 interface Props {
   pathway: Pathway | null;
   onPathwayUpdate?: (updated: Pathway) => void;
 }
 
-/** Determine lock status for a module based on its dependencies */
 function isModuleLocked(mod: ModuleType, allModules: ModuleType[]): boolean {
-  // First module (no sort-order predecessors) is always unlocked
   const prevInOrder = allModules.filter((m) => m.sort_order < mod.sort_order);
   if (prevInOrder.length === 0) return false;
 
-  // Explicit depends_on gates
   if (mod.depends_on && mod.depends_on.length > 0) {
     const moduleMap = new Map(allModules.map((m) => [m.id, m]));
     const depsMet = mod.depends_on.every((depId) => {
@@ -26,7 +23,6 @@ function isModuleLocked(mod: ModuleType, allModules: ModuleType[]): boolean {
     if (!depsMet) return true;
   }
 
-  // Sequential gate: prev module by sort_order must be complete
   const immediatePrev = prevInOrder.sort((a, b) => b.sort_order - a.sort_order)[0];
   if (immediatePrev && immediatePrev.tasks.length > 0) {
     const prevDone = immediatePrev.tasks.every((t) => t.completed);
@@ -76,7 +72,6 @@ export default function PathwayView({ pathway, onPathwayUpdate }: Props) {
         };
         setLocalPathway(updated);
 
-        // Trigger fade-in animation on newly unlocked modules
         const newlyUnlockedIds: string[] = [];
         updated.modules.forEach((m) => {
           const wasLocked = isModuleLocked(
@@ -84,9 +79,7 @@ export default function PathwayView({ pathway, onPathwayUpdate }: Props) {
             localPathway.modules
           );
           const nowLocked = isModuleLocked(m, updated.modules);
-          if (wasLocked && !nowLocked) {
-            newlyUnlockedIds.push(m.id);
-          }
+          if (wasLocked && !nowLocked) newlyUnlockedIds.push(m.id);
         });
 
         if (newlyUnlockedIds.length > 0) {
@@ -108,10 +101,10 @@ export default function PathwayView({ pathway, onPathwayUpdate }: Props) {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <Target className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--icon-muted)" }} />
-          <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-sm font-medium text-slate-700">
             No pathway yet
           </p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
+          <p className="text-xs mt-1 text-slate-400">
             Start a new plan to generate your learning path.
           </p>
         </div>
@@ -126,53 +119,82 @@ export default function PathwayView({ pathway, onPathwayUpdate }: Props) {
   );
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
+  // ── Flatten: modules + their subtask cards interleaved ──
+  type FlatItem =
+    | { kind: "module"; mod: ModuleType; index: number }
+    | { kind: "task"; task: Task; mod: ModuleType; subIndex: number }; // Added subIndex for animation delay orchestration
+
+  const flatItems: FlatItem[] = [];
+  localPathway.modules
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .forEach((mod, i) => {
+      flatItems.push({ kind: "module", mod, index: i });
+      if (expandedModules.has(mod.id)) {
+        const sorted = [...mod.tasks].sort((a, b) => a.sort_order - b.sort_order);
+        sorted.forEach((task, subIndex) => {
+          flatItems.push({ kind: "task", task, mod, subIndex });
+        });
+      }
+    });
+
   return (
     <div className="flex-1 overflow-y-auto px-5 py-6 max-w-3xl mx-auto w-full">
-      {/* Header card */}
-      <div className="card mb-6">
-        <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+      {/* Inject custom CSS keyframes for smooth slide down & fade in orchestration */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes slideCardDown {
+          from {
+            opacity: 0;
+            transform: translateY(-12px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .animate-slide-down {
+          animation: slideCardDown 280s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `.replace('280s', '280ms') /* Safe injection fallback */}} />
+
+      {/* ── Header card ── */}
+      <div className="bg-white rounded-xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-50 mb-8">
+        <h2 className="text-xl font-bold tracking-tight text-slate-900">
           {localPathway.title}
         </h2>
         {localPathway.summary && (
-          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-sm mt-1.5 leading-relaxed text-slate-600">
             {localPathway.summary}
           </p>
         )}
-        <div
-          className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs"
-          style={{ color: "var(--text-tertiary)" }}
-        >
-          <span>Subject: {localPathway.subject || "-"}</span>
-          <span>Level: {localPathway.goal_level}</span>
-          <span>Duration: {localPathway.duration}</span>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] font-medium text-slate-400">
+          <span>{localPathway.subject || "-"}</span>
+          <span>{localPathway.goal_level}</span>
+          <span>{localPathway.duration}</span>
         </div>
-        <div className="mt-4">
-          <div className="flex justify-between text-xs mb-1.5">
-            <span style={{ color: "var(--text-secondary)" }}>Progress</span>
-            <span style={{ color: "var(--color-accent)" }} className="font-medium">
+        <div className="mt-5">
+          <div className="flex justify-between text-[11px] mb-2 font-medium">
+            <span className="text-slate-500">Progress</span>
+            <span style={{ color: "var(--color-accent)" }} className="font-semibold tabular-nums">
               {pct}%
             </span>
           </div>
-          <div
-            className="h-1.5 rounded-full overflow-hidden"
-            style={{ background: "var(--bg-progress)" }}
-          >
+          <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--bg-progress)" }}>
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className="h-full rounded-full transition-all duration-700 ease-out"
               style={{ width: `${pct}%`, background: "var(--color-accent)" }}
             />
           </div>
-          <p className="text-[11px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+          <p className="text-[11px] mt-2 tabular-nums font-medium text-slate-400">
             {done} / {total} tasks
           </p>
         </div>
       </div>
 
-      {/* Module list */}
-      <div className="space-y-1.5">
-        {localPathway.modules
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((mod, i) => {
+      {/* ── Flat list: modules + subtask cards ── */}
+      <div className="space-y-3">
+        {flatItems.map((item) => {
+          if (item.kind === "module") {
+            const { mod, index } = item;
             const locked = isModuleLocked(mod, localPathway.modules);
             const modDone = mod.tasks.filter((t) => t.completed).length;
             const modTotal = mod.tasks.length;
@@ -183,190 +205,146 @@ export default function PathwayView({ pathway, onPathwayUpdate }: Props) {
             return (
               <div
                 key={mod.id}
-                className={`card !p-3 ${locked ? "" : ""} ${
+                className={`w-full bg-white rounded-xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.02)] border border-slate-50 transition-all duration-300 ${
                   isAnimating ? "module-fade-in" : ""
                 }`}
-                style={{
-                  opacity: locked ? 0.55 : 1,
-                  transition: "opacity 0.35s ease",
-                }}
+                style={{ opacity: locked ? 0.4 : 1 }}
               >
                 <button
                   onClick={() => toggleExpand(mod.id)}
-                  className="w-full flex items-center gap-3 text-left"
+                  className="w-full flex items-center gap-3 text-left focus:outline-none"
                 >
-                  {/* Module number / lock icon */}
                   <div
                     className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                     style={{
-                      background: locked
-                        ? "var(--bg-progress)"
-                        : "var(--color-accent-bg)",
+                      background: locked ? "var(--bg-progress)" : "var(--color-accent-bg)",
                       color: locked ? "var(--text-tertiary)" : "var(--color-accent)",
                     }}
                   >
-                    {locked ? (
-                      <Lock className="w-2.5 h-2.5" />
-                    ) : (
-                      i + 1
-                    )}
+                    {locked ? <Lock className="w-2.5 h-2.5" /> : index + 1}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h3
-                        className="text-sm font-medium truncate"
-                        style={{
-                          color: locked
-                            ? "var(--text-tertiary)"
-                            : "var(--text-primary)",
-                        }}
+                        className="text-base font-semibold truncate tracking-tight text-slate-900"
+                        style={locked ? { color: "var(--text-tertiary)" } : undefined}
                       >
                         {mod.title}
                       </h3>
-                      {/* Core / Extension badge */}
                       <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                        className="text-[9px] px-1.5 py-0.5 rounded-md font-bold shrink-0 tracking-wider"
                         style={{
-                          background: mod.is_core !== false
-                            ? "var(--color-accent-bg)"
-                            : "var(--bg-progress)",
-                          color: mod.is_core !== false
-                            ? "var(--color-accent)"
-                            : "var(--text-tertiary)",
+                          background: mod.is_core !== false ? "var(--color-accent-bg)" : "var(--bg-progress)",
+                          color: mod.is_core !== false ? "var(--color-accent)" : "var(--text-tertiary)",
                         }}
                       >
-                        {mod.is_core !== false ? "Core" : "Ext"}
+                        {mod.is_core !== false ? "CORE" : "EXT"}
                       </span>
                     </div>
 
                     {!locked && modTotal > 0 && (
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <div
-                          className="flex-1 h-1 rounded-full max-w-[100px]"
-                          style={{ background: "var(--bg-progress)" }}
-                        >
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="flex-1 h-1 rounded-full max-w-[60px]" style={{ background: "var(--bg-progress)" }}>
                           <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${modPct}%`,
-                              background: "var(--color-accent)",
-                            }}
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${modPct}%`, background: "var(--color-accent)" }}
                           />
                         </div>
-                        <span
-                          className="text-[11px]"
-                          style={{ color: "var(--text-tertiary)" }}
-                        >
+                        <span className="text-[11px] tabular-nums font-medium text-slate-500">
                           {modDone}/{modTotal}
                         </span>
                       </div>
                     )}
 
                     {locked && (
-                      <p className="text-[11px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+                      <p className="text-[11px] mt-1 text-slate-400">
                         Complete previous module to unlock
                       </p>
                     )}
                   </div>
 
                   {isExpanded ? (
-                    <ChevronDown
-                      className="w-3.5 h-3.5 shrink-0"
-                      style={{ color: "var(--icon-muted)" }}
-                    />
+                    <ChevronDown className="w-4 h-4 shrink-0 text-slate-500" />
                   ) : (
-                    <ChevronRight
-                      className="w-3.5 h-3.5 shrink-0"
-                      style={{ color: "var(--icon-muted)" }}
-                    />
+                    <ChevronRight className="w-4 h-4 shrink-0 text-slate-500" />
                   )}
                 </button>
-
-                {/* Task list (expanded) */}
-                {isExpanded && (
-                  <div className="mt-2.5 pl-9 space-y-0.5">
-                    {mod.tasks
-                      .sort((a, b) => a.sort_order - b.sort_order)
-                      .map((task, taskIdx) => {
-                        // Tasks within module also follow sequential lock
-                        const taskLocked = locked;
-                        return (
-                          <label
-                            key={task.id}
-                            className={`flex items-center gap-2.5 py-1.5 rounded-md px-2 -mx-2 transition-colors ${
-                              taskLocked ? "cursor-not-allowed" : "cursor-pointer group"
-                            }`}
-                            style={
-                              taskLocked
-                                ? {}
-                                : {}
-                            }
-                            onMouseEnter={(e) => {
-                              if (!taskLocked)
-                                e.currentTarget.style.background = "var(--bg-card-hover)";
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!taskLocked)
-                                e.currentTarget.style.background = "transparent";
-                            }}
-                          >
-                            {/* Checkbox */}
-                            <div
-                              onClick={() => {
-                                if (!taskLocked) toggleTask(task, mod);
-                              }}
-                              className={`task-check ${
-                                task.completed ? "checked" : ""
-                              } ${taskLocked ? "task-check-locked" : ""}`}
-                              style={
-                                taskLocked
-                                  ? {
-                                      borderColor: "var(--text-tertiary)",
-                                      opacity: 0.35,
-                                      cursor: "not-allowed",
-                                    }
-                                  : {}
-                              }
-                            >
-                              {task.completed && (
-                                <CheckCircle2 className="w-3 h-3" />
-                              )}
-                            </div>
-
-                            {/* Task title */}
-                            <span
-                              className="text-sm flex-1"
-                              style={{
-                                color: task.completed
-                                  ? "var(--text-tertiary)"
-                                  : taskLocked
-                                  ? "var(--text-tertiary)"
-                                  : "var(--text-primary)",
-                                textDecoration: task.completed
-                                  ? "line-through"
-                                  : "none",
-                              }}
-                            >
-                              {task.title}
-                            </span>
-
-                            {task.description && !taskLocked && (
-                              <span
-                                className="text-[11px] hidden group-hover:inline shrink-0"
-                                style={{ color: "var(--text-tertiary)" }}
-                              >
-                                {task.description}
-                              </span>
-                            )}
-                          </label>
-                        );
-                      })}
-                  </div>
-                )}
               </div>
             );
-          })}
+          }
+
+          // ── Task & Subtask cards ──
+          const { task, mod, subIndex } = item;
+          const locked = isModuleLocked(mod, localPathway.modules);
+
+          return (
+            <div
+              key={task.id}
+              onClick={() => {
+                if (!locked) toggleTask(task, mod);
+              }}
+              className={`
+                rounded-xl p-4 select-none
+                bg-white shadow-[0_4px_16px_rgba(0,0,0,0.02)] border border-slate-100/50
+                ${locked ? "opacity-40 cursor-not-allowed" : "cursor-pointer active:scale-[0.99]"}
+                ${task.completed ? "opacity-50" : ""}
+                w-[93%] ml-auto will-change-transform
+                animate-slide-down transition-all duration-200
+              `}
+              style={{
+                // Orchestrate staggered cascading delay for multiple subtasks (35ms interval)
+                animationDelay: `${subIndex * 35}ms`,
+                // Keep initially hidden until animation plays
+                animationFillMode: "both", 
+              }}
+              role="button"
+              tabIndex={locked ? -1 : 0}
+              onKeyDown={(e) => {
+                if (!locked && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  toggleTask(task, mod);
+                }
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div 
+                  className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all duration-200 ${
+                    task.completed 
+                      ? "bg-slate-900 border-slate-900 text-white" 
+                      : "border-slate-300"
+                  }`}
+                >
+                  {task.completed && (
+                    <svg 
+                      className="w-2.5 h-2.5 stroke-[3.5]" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <span
+                    className={`block tracking-tight text-sm font-medium text-slate-800 transition-all duration-200 ${
+                      task.completed ? "line-through text-slate-400 font-normal" : ""
+                    }`}
+                  >
+                    {task.title}
+                  </span>
+                  {task.description && !locked && (
+                    <span className="block text-xs mt-1 leading-relaxed text-slate-500">
+                      {task.description}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

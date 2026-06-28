@@ -24,5 +24,5 @@ class GoalClarifierAgent(BaseAgent):
   并在标记后输出一个 JSON 对象包含收集到的信息：
   {"subject": "...", "goal_level": "...", "duration": "...", "style": "..."}
 
-请用中文回复用户。
+请用用户对话使用的语言回复用户。
 """
